@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import { DayPicker, type CustomComponents } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -15,14 +15,26 @@ export function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  // Override nav icons for react-day-picker v9
-  const components = {
-    IconPrevious: ({ className, ...p }) => (
-      <ChevronLeft className={cn("h-4 w-4", className)} {...p} />
-    ),
-    IconNext: ({ className, ...p }) => (
-      <ChevronRight className={cn("h-4 w-4", className)} {...p} />
-    ),
+  // Override nav icons for react-day-picker v9 with explicit prop types
+  const components: Partial<CustomComponents> = {
+    IconPrevious: (svgProps: React.SVGProps<SVGSVGElement>) => {
+      const { className: svgClass, ...rest } = svgProps
+      return (
+        <ChevronLeft
+          className={cn("h-4 w-4", svgClass)}
+          {...rest}
+        />
+      )
+    },
+    IconNext: (svgProps: React.SVGProps<SVGSVGElement>) => {
+      const { className: svgClass, ...rest } = svgProps
+      return (
+        <ChevronRight
+          className={cn("h-4 w-4", svgClass)}
+          {...rest}
+        />
+      )
+    },
   }
 
   return (
@@ -43,7 +55,8 @@ export function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+        head_cell:
+          "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 " +
@@ -71,14 +84,8 @@ export function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        IconLeft: ({ className, ...p }: { className?: string }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...p} />
-        ),
-        IconRight: ({ className, ...p }: { className?: string }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...p} />
-        ),
-      }} {...props}
+      components={components}
+      {...props}
     />
   )
 }
