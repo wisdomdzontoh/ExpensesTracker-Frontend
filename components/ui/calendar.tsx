@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, type CustomComponents } from "react-day-picker"
+import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -15,28 +15,6 @@ export function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  // Override nav icons for react-day-picker v9 with explicit prop types
-  const components: Partial<CustomComponents> = {
-    IconPrevious: (svgProps: React.SVGProps<SVGSVGElement>) => {
-      const { className: svgClass, ...rest } = svgProps
-      return (
-        <ChevronLeft
-          className={cn("h-4 w-4", svgClass)}
-          {...rest}
-        />
-      )
-    },
-    IconNext: (svgProps: React.SVGProps<SVGSVGElement>) => {
-      const { className: svgClass, ...rest } = svgProps
-      return (
-        <ChevronRight
-          className={cn("h-4 w-4", svgClass)}
-          {...rest}
-        />
-      )
-    },
-  }
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -84,7 +62,16 @@ export function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={components}
+      components={
+        {
+          IconPrevious: ({ className: svgClass, ...rest }: React.SVGProps<SVGSVGElement>) => (
+            <ChevronLeft className={cn("h-4 w-4", svgClass)} {...rest} />
+          ),
+          IconNext: ({ className: svgClass, ...rest }: React.SVGProps<SVGSVGElement>) => (
+            <ChevronRight className={cn("h-4 w-4", svgClass)} {...rest} />
+          ),
+        } as any
+      }
       {...props}
     />
   )
