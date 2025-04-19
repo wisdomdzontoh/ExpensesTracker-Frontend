@@ -15,7 +15,7 @@ export function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  // Use v9+ component keys: IconPrevious & IconNext
+  // Override navigation icons using v9+ component keys
   const components: Partial<CustomComponents> = {
     IconPrevious: ({ className, ...p }) => (
       <ChevronLeft className={cn("h-4 w-4", className)} {...p} />
