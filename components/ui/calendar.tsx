@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, type CustomComponents } from "react-day-picker"
+import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -16,7 +16,7 @@ export function Calendar({
   ...props
 }: CalendarProps) {
   // Override nav icons for react-day-picker v9
-  const components: Partial<CustomComponents> = {
+  const components = {
     IconPrevious: ({ className, ...p }) => (
       <ChevronLeft className={cn("h-4 w-4", className)} {...p} />
     ),
@@ -71,8 +71,14 @@ export function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={components}
-      {...props}
+      components={{
+        IconLeft: ({ className, ...p }: { className?: string }) => (
+          <ChevronLeft className={cn("h-4 w-4", className)} {...p} />
+        ),
+        IconRight: ({ className, ...p }: { className?: string }) => (
+          <ChevronRight className={cn("h-4 w-4", className)} {...p} />
+        ),
+      }} {...props}
     />
   )
 }
