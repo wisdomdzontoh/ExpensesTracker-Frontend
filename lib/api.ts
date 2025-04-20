@@ -60,6 +60,15 @@ interface TransactionFilters {
   category?: number
 }
 
+/** DTO for `POST /transactions/` */
+export interface CreateTransactionDto {
+  amount: number
+  transaction_type: "income" | "expense"
+  category_id: number
+  description?: string
+  date: string
+}
+
 export async function fetchTransactions(
   filters: TransactionFilters = {}
 ): Promise<Transaction[]> {
@@ -73,13 +82,18 @@ export async function fetchTransactions(
 }
 
 export async function createTransaction(
-  data: Omit<Transaction, "id">
+  data: CreateTransactionDto
 ): Promise<Transaction> {
-  const res = await authFetch(`${API_URL}/transactions/`, {
+  const token = getAuthToken()
+  const res = await fetch(`${API_URL}/transactions/`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   })
-  return parseJson<Transaction>(res)
+  return handleResponse(res)
 }
 
 export async function updateTransaction(
@@ -171,3 +185,17 @@ export async function exportUserData(
   const res = await authFetch(url.toString())
   return parseMaybeText(res, format === "json")
 }
+async function handleResponse(res: Response): Promise<Transaction> {
+  if (!res.ok) {
+    let errDetail: string
+    try {
+      const json = await res.json()
+      errDetail = json.detail ?? JSON.stringify(json)
+    } catch {
+      errDetail = res.statusText
+    }
+    throw new Error(errDetail)
+  }
+  return res.json()
+}
+
