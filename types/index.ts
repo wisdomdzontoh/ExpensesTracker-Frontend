@@ -42,3 +42,16 @@ export interface ReportData {
   category_summary: CategorySummary[]
   monthly_summary: MonthlySummary[]
 }
+
+// User profile type
+export interface UserProfile {
+  id: number
+  username: string
+  email: string
+  full_name?: string
+  phone_number?: string
+  bio?: string
+  avatar_url?: string
+  date_joined: string
+  last_login?: string
+}

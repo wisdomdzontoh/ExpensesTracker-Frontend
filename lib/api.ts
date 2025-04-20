@@ -1,148 +1,173 @@
-import type { DashboardData, Transaction, Category } from "@/types"
+// lib/api.ts
 
-// Base API URL - replace with your actual API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+import type { DashboardData, Transaction, Category, UserProfile } from "@/types"
 
-// Helper function to handle API responses
-async function handleResponse(response: Response) {
-  if (!response.ok) {
-    const error = await response.json().catch(() => null)
-    throw new Error(error?.detail || `API error: ${response.status}`)
-  }
-  return response.json()
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")  
+  ?? "http://localhost:8000/api"
+
+/** Retrieve stored access token (or null if not set) */
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem("accessToken")
 }
 
-// Get auth token from localStorage (you'll need to implement your auth context)
-function getAuthToken() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("accessToken")
-  }
-  return null
-}
-
-// Fetch dashboard summary data
-export async function fetchDashboardData(): Promise<DashboardData> {
+/** Perform a fetch with JSON headers + Bearer auth if available */
+async function authFetch(input: string, init: RequestInit = {}) {
   const token = getAuthToken()
-  const response = await fetch(`${API_URL}/dashboard/`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
-  return handleResponse(response)
+  const headers: Record<string,string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string,string>),
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const res = await fetch(input, { ...init, headers })
+  if (!res.ok) {
+    let errDetail: string
+    try {
+      const json = await res.json()
+      errDetail = json.detail ?? JSON.stringify(json)
+    } catch {
+      errDetail = res.statusText
+    }
+    throw new Error(errDetail)
+  }
+  return res
 }
 
-// Fetch transactions with optional filters
-export async function fetchTransactions(filters?: {
+/** Parse JSON response */
+async function parseJson<T>(res: Response): Promise<T> {
+  return res.json()
+}
+
+/** Fetch JSON or text based on expected return type */
+async function parseMaybeText(res: Response, asJson: boolean) {
+  return asJson ? res.json() : res.text()
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+export async function fetchDashboardData(): Promise<DashboardData> {
+  const res = await authFetch(`${API_URL}/dashboard/`)
+  return parseJson<DashboardData>(res)
+}
+
+// ─── Transactions ────────────────────────────────────────────────────────────
+
+interface TransactionFilters {
   month?: number
   year?: number
   transaction_type?: string
   category?: number
-}): Promise<Transaction[]> {
-  const token = getAuthToken()
-
-  let url = `${API_URL}/transactions/`
-
-  if (filters) {
-    const params = new URLSearchParams()
-    if (filters.month) params.append("month", filters.month.toString())
-    if (filters.year) params.append("year", filters.year.toString())
-    if (filters.transaction_type) params.append("transaction_type", filters.transaction_type)
-    if (filters.category) params.append("category", filters.category.toString())
-
-    if (params.toString()) {
-      url += `?${params.toString()}`
-    }
-  }
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
-
-  return handleResponse(response)
 }
 
-// Fetch categories
-export async function fetchCategories(): Promise<Category[]> {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/categories/`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+export async function fetchTransactions(
+  filters: TransactionFilters = {}
+): Promise<Transaction[]> {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v != null) params.set(k, String(v))
   })
-  return handleResponse(response)
+  const url = `${API_URL}/transactions/${params.toString() ? `?${params}` : ""}`
+  const res = await authFetch(url)
+  return parseJson<Transaction[]>(res)
 }
 
-// Create a new transaction
-export async function createTransaction(data: any): Promise<Transaction> {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/transactions/`, {
+export async function createTransaction(
+  data: Omit<Transaction, "id">
+): Promise<Transaction> {
+  const res = await authFetch(`${API_URL}/transactions/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-  return handleResponse(response)
+  return parseJson<Transaction>(res)
 }
 
-// Create a new category
-export async function createCategory(name: string): Promise<Category> {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/categories/`, {
+export async function updateTransaction(
+  id: number,
+  data: Partial<Transaction>
+): Promise<Transaction> {
+  const res = await authFetch(`${API_URL}/transactions/${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+  return parseJson<Transaction>(res)
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  await authFetch(`${API_URL}/transactions/${id}/`, {
+    method: "DELETE",
+  })
+}
+
+// ─── Categories ──────────────────────────────────────────────────────────────
+
+export async function fetchCategories(): Promise<Category[]> {
+  const res = await authFetch(`${API_URL}/categories/`)
+  return parseJson<Category[]>(res)
+}
+
+export async function createCategory(
+  name: string
+): Promise<Category> {
+  const res = await authFetch(`${API_URL}/categories/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ name }),
   })
-  return handleResponse(response)
+  return parseJson<Category>(res)
 }
 
-// Fetch report data
-export async function fetchReportData() {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/reports/`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
-  return handleResponse(response)
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+export async function fetchReportData(): Promise<any> {
+  const res = await authFetch(`${API_URL}/reports/`)
+  return parseJson<any>(res)
 }
 
-// Delete a transaction
-export async function deleteTransaction(id: number): Promise<void> {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/transactions/${id}/`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  })
+// ─── User Profile ───────────────────────────────────────────────────────────
 
-  if (!response.ok) {
-    throw new Error("Failed to delete transaction")
-  }
+export async function getUserProfile(): Promise<UserProfile> {
+  const res = await authFetch(`${API_URL}/auth/me/`)
+  return parseJson<UserProfile>(res)
 }
 
-// Update a transaction
-export async function updateTransaction(id: number, data: any): Promise<Transaction> {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/transactions/${id}/`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+export async function updateUserProfile(
+  data: Partial<UserProfile>
+): Promise<UserProfile> {
+  const res = await authFetch(`${API_URL}/auth/me/`, {
+    method: "PATCH",
     body: JSON.stringify(data),
   })
-  return handleResponse(response)
+  return parseJson<UserProfile>(res)
+}
+
+// ─── Password & Account ──────────────────────────────────────────────────────
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await authFetch(`${API_URL}/auth/change-password/`, {
+    method: "POST",
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  })
+}
+
+export async function deleteAccount(): Promise<void> {
+  await authFetch(`${API_URL}/auth/me/`, {
+    method: "DELETE",
+  })
+}
+
+// ─── Data Export ─────────────────────────────────────────────────────────────
+
+export async function exportUserData(
+  format: "json" | "csv" = "json"
+): Promise<object | string> {
+  const url = new URL(`${API_URL}/auth/export-data/`)
+
+  const res = await authFetch(url.toString())
+  return parseMaybeText(res, format === "json")
 }

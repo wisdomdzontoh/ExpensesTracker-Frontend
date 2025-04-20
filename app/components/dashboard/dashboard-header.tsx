@@ -1,6 +1,5 @@
 "use client"
 
-import React, { useEffect } from "react"
 import { CalendarIcon, DownloadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,18 +9,17 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select"
-import { useCurrency } from "@/app/context/CurrencyContext"
+import { useCurrency, SUPPORTED_CURRENCIES } from "@/app/context/CurrencyContext"
 
 export function DashboardHeader() {
-  const currentDate = new Date()
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
+  const now = new Date()
+  const formattedDate = new Intl.DateTimeFormat(undefined, {
     year: "numeric",
     month: "long",
     day: "numeric",
-  }).format(currentDate)
+  }).format(now)
 
   const { currency, setCurrency } = useCurrency()
-  const currencyOptions: string[] = ["USD", "EUR", "GHS", "GBP"]
 
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -34,14 +32,14 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center space-x-2">
-        <Select value={currency} onValueChange={setCurrency}>
+        <Select value={currency} onValueChange={(v) => setCurrency(v as typeof currency)}>
           <SelectTrigger className="w-[100px]">
             <SelectValue placeholder="Currency" />
           </SelectTrigger>
           <SelectContent>
-            {currencyOptions.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
+            {SUPPORTED_CURRENCIES.map((code) => (
+              <SelectItem key={code} value={code}>
+                {code}
               </SelectItem>
             ))}
           </SelectContent>

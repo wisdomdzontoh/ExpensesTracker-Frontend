@@ -1,57 +1,92 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowDownIcon, ArrowUpIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  SearchIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  TrashIcon,
+} from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { toast } from "sonner"
+import { deleteTransaction } from "@/lib/api"
 import type { Transaction } from "@/types"
+import { useFormatter } from "@/lib/formatCurrency"
 
 interface RecentTransactionsProps {
   transactions: Transaction[]
+  onTransactionDeleted?: () => void
 }
 
-export function RecentTransactions({ transactions }: RecentTransactionsProps) {
+export function RecentTransactions({
+  transactions,
+  onTransactionDeleted,
+}: RecentTransactionsProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [filter, setFilter] = useState("all")
+  const [filter, setFilter] = useState<"all" | "income" | "expense">("all")
   const itemsPerPage = 5
 
-  // Filter transactions based on search term and type filter
-  const filteredTransactions = transactions.filter((transaction) => {
-    const matchesSearch =
-      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const format = useFormatter()
 
-    if (filter === "all") return matchesSearch
-    return matchesSearch && transaction.transaction_type === filter
-  })
-
-  // Paginate transactions
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentTransactions = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("en-US", {
+  // Format date
+  const formatDate = (dateString: string) =>
+    new Intl.DateTimeFormat(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
-    }).format(date)
-  }
+    }).format(new Date(dateString))
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
+  // Filter by search & type
+  const filtered = transactions.filter((tx) => {
+    const matchesSearch =
+      tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tx.category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    return filter === "all"
+      ? matchesSearch
+      : matchesSearch && tx.transaction_type === filter
+  })
+
+  // Pagination
+  const indexOfLast = currentPage * itemsPerPage
+  const indexOfFirst = indexOfLast - itemsPerPage
+  const currentTransactions = filtered.slice(indexOfFirst, indexOfLast)
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+
+  // Delete handler
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this transaction?")) return
+    try {
+      await deleteTransaction(id)
+      toast.success("Transaction deleted")
+      onTransactionDeleted?.()
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to delete transaction")
+    }
   }
 
   return (
     <div className="space-y-4">
+      {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="relative w-full sm:w-64">
           <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -61,15 +96,15 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
-              setCurrentPage(1) // Reset to first page on search
+              setCurrentPage(1)
             }}
           />
         </div>
         <Select
           value={filter}
           onValueChange={(value) => {
-            setFilter(value)
-            setCurrentPage(1) // Reset to first page on filter change
+            setFilter(value as "all" | "income" | "expense")
+            setCurrentPage(1)
           }}
         >
           <SelectTrigger className="w-full sm:w-[180px]">
@@ -83,7 +118,8 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
         </Select>
       </div>
 
-      <div className="rounded-md border">
+      {/* Table */}
+      <div className="rounded-md border overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -91,32 +127,50 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentTransactions.length > 0 ? (
-              currentTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-medium">{formatDate(transaction.date)}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>{transaction.category.name}</TableCell>
+              currentTransactions.map((tx) => (
+                <TableRow key={tx.id}>
+                  <TableCell className="font-medium">
+                    {formatDate(tx.date)}
+                  </TableCell>
+                  <TableCell>{tx.description}</TableCell>
+                  <TableCell>{tx.category.name}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end">
-                      {transaction.transaction_type === "income" ? (
+                      {tx.transaction_type === "income" ? (
                         <ArrowUpIcon className="mr-1 h-4 w-4 text-green-500" />
                       ) : (
                         <ArrowDownIcon className="mr-1 h-4 w-4 text-red-500" />
                       )}
-                      <span className={transaction.transaction_type === "income" ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(transaction.amount)}
+                      <span
+                        className={
+                          tx.transaction_type === "income"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {format(Number(tx.amount))}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(tx.id)}
+                    >
+                      <TrashIcon className="h-4 w-4 text-muted-foreground" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No transactions found.
                 </TableCell>
               </TableRow>
@@ -126,17 +180,17 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
       </div>
 
       {/* Pagination */}
-      {filteredTransactions.length > itemsPerPage && (
+      {filtered.length > itemsPerPage && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredTransactions.length)} of{" "}
-            {filteredTransactions.length}
+            Showing {indexOfFirst + 1}-
+            {Math.min(indexOfLast, filtered.length)} of {filtered.length}
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
             >
               <ChevronLeftIcon className="h-4 w-4" />
@@ -144,7 +198,9 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((p) => Math.min(p + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
             >
               <ChevronRightIcon className="h-4 w-4" />
